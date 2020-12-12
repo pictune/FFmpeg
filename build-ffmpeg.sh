@@ -18,8 +18,14 @@ THIN=`pwd`/"thin"
 
 #FDK_AAC=`pwd`/../fdk-aac-build-script-for-iOS/fdk-aac-ios
 
-CONFIGURE_FLAGS="--enable-cross-compile --disable-debug --disable-programs \
-                 --disable-doc --enable-pic"
+CONFIGURE_FLAGS="--enable-cross-compile --disable-debug \
+                 --disable-doc --enable-pic --disable-everything --disable-network --disable-autodetect \
+		 --disable-ffplay --disable-ffprobe \
+		 --enable-decoder=aac,pcm_f32be,pcm_f32le,h264 \
+		 --enable-encoder=hevc_videotoolbox,aac \
+		 --enable-demuxer=mov,caf,mpegvideo,wav \
+		 --enable-muxer=mp4 \
+		 --enable-protocol=file --enable-filter=aresample --enable-videotoolbox"
 
 if [ "$X264" ]
 then
@@ -143,7 +149,7 @@ then
 		    --prefix="$THIN/$ARCH" \
 		|| exit 1
 
-		make -j3 install $EXPORT || exit 1
+		make -j3 V=1 install $EXPORT || exit 1
 		cd $CWD
 	done
 fi
