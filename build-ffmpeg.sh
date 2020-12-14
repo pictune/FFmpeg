@@ -7,6 +7,7 @@ if [[ $FFMPEG_VERSION != "" ]]; then
   FF_VERSION=$FFMPEG_VERSION
 fi
 SOURCE="ffmpeg-$FF_VERSION"
+ABS_SOURCE=`pwd`/"$SOURCE"
 FAT="FFmpeg-iOS"
 
 SCRATCH="scratch"
@@ -116,6 +117,9 @@ then
 
 		XCRUN_SDK=`echo $PLATFORM | tr '[:upper:]' '[:lower:]'`
 		CC="xcrun -sdk $XCRUN_SDK clang"
+		PICTUNE_AR="xcrun -sdk $XCRUN_SDK ar"
+		PICTUNE_RL="xcrun -sdk $XCRUN_SDK ranlib"
+
 
 		# force "configure" to use "gas-preprocessor.pl" (FFmpeg 3.3)
 		if [ "$ARCH" = "arm64" ]
@@ -148,11 +152,18 @@ then
 		    --extra-ldflags="$LDFLAGS" \
 		    --prefix="$THIN/$ARCH" \
 		|| exit 1
-
-		make -j3 V=1 install $EXPORT || exit 1
+		
+		make -j3 V=1 PICTUNE_AR="xcrun -sdk $XCRUN_SDK ar" PICTUNE_RL="xcrun -sdk $XCRUN_SDK ranlib" install $EXPORT || exit 1
 		cd $CWD
 	done
 fi
+
+for ARCH in $ARCHS
+do
+	mv "$THIN/$ARCH/bin/ffmpeg" "$THIN/$ARCH/lib/ffmpeg.a"
+	mkdir -f "$THIN/$ARCH/include/ffmpeg"
+	cp "$ABS_SOURCE/fftools/ffmpeg.h" "$THIN/$ARCH/include/ffmpeg/ffmpeg.h"
+done
 
 if [ "$LIPO" ]
 then
