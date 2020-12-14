@@ -1,3 +1,7 @@
+# About this repository
+
+The original *FFmpeg iOS build script* repository can be found here https://github.com/kewlbear/FFmpeg-iOS-build-script. What follows is the original README.
+
 # FFmpeg iOS build script
 
 See the following repository for Swift package, .xcframeworks and more:
