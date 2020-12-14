@@ -10,6 +10,7 @@ ALLAVPROGS   = $(AVBASENAMES:%=%$(PROGSSUF)$(EXESUF))
 ALLAVPROGS_G = $(AVBASENAMES:%=%$(PROGSSUF)_g$(EXESUF))
 
 OBJS-ffmpeg                        += fftools/ffmpeg_opt.o fftools/ffmpeg_filter.o fftools/ffmpeg_hw.o
+OBJS-ffmpeg                        += fftools/AtomicLong.o fftools/ffmpeg_execute.o
 OBJS-ffmpeg-$(CONFIG_LIBMFX)       += fftools/ffmpeg_qsv.o
 ifndef CONFIG_VIDEOTOOLBOX
 OBJS-ffmpeg-$(CONFIG_VDA)          += fftools/ffmpeg_videotoolbox.o
@@ -18,6 +19,8 @@ OBJS-ffmpeg-$(CONFIG_VIDEOTOOLBOX) += fftools/ffmpeg_videotoolbox.o
 
 define DOFFTOOL
 OBJS-$(1) += fftools/cmdutils.o fftools/$(1).o $(OBJS-$(1)-yes)
+fftools/AtomicLong.o: fftools/AtomicLong.m
+fftools/ffmpeg_execute.o: fftools/ffmpeg_execute.m
 $(1)$(PROGSSUF)_g$(EXESUF): $$(OBJS-$(1))
 	$(PICTUNE_AR) rc $(1)$(PROGSSUF)_g $$(OBJS-$(1))
 	$(PICTUNE_RL) $(1)$(PROGSSUF)_g

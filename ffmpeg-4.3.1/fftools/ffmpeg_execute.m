@@ -51,8 +51,8 @@ extern int configuredLogLevel;
      *
      * ffmpeg <arguments>
      */
-    commandCharPArray[0] = (char *)av_malloc(sizeof(char) * ([LIB_NAME length] + 1));
-    strcpy(commandCharPArray[0], [LIB_NAME UTF8String]);
+    commandCharPArray[0] = (char *)av_malloc(sizeof(char) * (6 + 1));
+    strcpy(commandCharPArray[0], "ffmpeg");
 
     for (int i=0; i < [arguments count]; i++) {
         NSString *argument = [arguments objectAtIndex:i];
@@ -106,7 +106,7 @@ extern int configuredLogLevel;
  * This function does not wait for termination to complete and returns immediately.
  */
 + (void)cancel {
-    cancel_operation(DEFAULT_EXECUTION_ID);
+    // cancel_operation(DEFAULT_EXECUTION_ID);
 }
 
 /**
@@ -117,7 +117,7 @@ extern int configuredLogLevel;
  * @param executionId execution id
  */
 + (void)cancel:(long)executionId {
-    cancel_operation(executionId);
+    // cancel_operation(executionId);
 }
 
 /**
