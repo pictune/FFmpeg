@@ -74,7 +74,7 @@ static int report_file_level = AV_LOG_DEBUG;
 int hide_banner = 0;
 
 static jmp_buf ex_buf__;
-static volatile int longjmp_value = 0;
+static int longjmp_value = 0;
 
 enum show_muxdemuxers {
     SHOW_DEFAULT,

@@ -345,8 +345,10 @@ static volatile int received_nb_signals = 0;
 static atomic_int transcode_init_done = ATOMIC_VAR_INIT(0);
 static volatile int ffmpeg_exited = 0;
 static int main_return_code = 0;
-extern int longjmp_value;
-extern jmp_buf ex_buf__;
+// extern int longjmp_value;
+// extern jmp_buf ex_buf__;
+static jmp_buf ex_buf__;
+static volatile int longjmp_value = 0;
 
 static void
 sigterm_handler(int sig)

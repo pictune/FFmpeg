@@ -11,6 +11,7 @@ ABS_SOURCE=`pwd`/"$SOURCE"
 FAT="FFmpeg-iOS"
 
 SCRATCH="scratch"
+ABS_SCRATCH=`pwd`/"scratch"
 # must be an absolute path
 THIN=`pwd`/"thin"
 
@@ -22,11 +23,12 @@ THIN=`pwd`/"thin"
 CONFIGURE_FLAGS="--enable-cross-compile --disable-debug \
                  --disable-doc --enable-pic --disable-everything --disable-network --disable-autodetect \
 		 --disable-ffplay --disable-ffprobe \
-		 --enable-decoder=aac,pcm_f32be,pcm_f32le,h264 \
-		 --enable-encoder=hevc_videotoolbox,aac \
-		 --enable-demuxer=mov,caf,mpegvideo,wav \
+		 --enable-decoder=pcm_f32be,pcm_f32le,prores \
+		 --enable-encoder=hevc_videotoolbox,h264_videotoolbox,aac \
+		 --enable-demuxer=mov,caf,wav \
 		 --enable-muxer=mp4 \
-		 --enable-protocol=file --enable-filter=aresample --enable-videotoolbox"
+		 --enable-protocol=file --enable-filter=aresample --enable-videotoolbox \
+		 --enable-bzlib --enable-zlib --enable-iconv"
 
 if [ "$X264" ]
 then
@@ -41,7 +43,7 @@ fi
 # avresample
 #CONFIGURE_FLAGS="$CONFIGURE_FLAGS --enable-avresample"
 
-ARCHS="arm64 armv7 x86_64 i386"
+ARCHS="arm64 x86_64"
 
 COMPILE="y"
 LIPO="y"
@@ -158,11 +160,14 @@ then
 	done
 fi
 
+echo "Beginning library renaming"
 for ARCH in $ARCHS
 do
-	mv "$THIN/$ARCH/bin/ffmpeg" "$THIN/$ARCH/lib/ffmpeg.a"
-	mkdir -f "$THIN/$ARCH/include/ffmpeg"
-	cp "$ABS_SOURCE/fftools/ffmpeg.h" "$THIN/$ARCH/include/ffmpeg/ffmpeg.h"
+	echo "Copying headers for $ARCH"
+	rm -f "$THIN/$ARCH/bin/ffmpeg"
+	cp "$ABS_SCRATCH/$ARCH/ffmpeg" "$THIN/$ARCH/lib/ffmpeg.a"
+	mkdir -p "$THIN/$ARCH/include/ffmpeg_execute"
+	cp "$ABS_SOURCE/fftools/ffmpeg_execute.h" "$THIN/$ARCH/include/ffmpeg_execute/ffmpeg_execute.h"
 done
 
 if [ "$LIPO" ]

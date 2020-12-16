@@ -7,8 +7,8 @@ int ffmpeg_execute(int argc, char **argv);
 
 @implementation FFmpegExecute
 
-extern int lastReturnCode;
-extern NSMutableString *lastCommandOutput;
+int lastReturnCode = 0;
+NSMutableString *lastCommandOutput;
 
 long const DEFAULT_EXECUTION_ID = 0;
 AtomicLong *executionIdCounter;
@@ -21,7 +21,7 @@ int cancelRequested(long executionId);
 NSMutableArray *executions;
 NSLock *executionsLock;
 
-extern int configuredLogLevel;
+int configuredLogLevel = 0;
 
 + (void)initialize {
     // [MobileFFmpegConfig class];
