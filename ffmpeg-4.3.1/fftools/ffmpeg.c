@@ -347,8 +347,8 @@ static volatile int ffmpeg_exited = 0;
 static int main_return_code = 0;
 // extern int longjmp_value;
 // extern jmp_buf ex_buf__;
-static jmp_buf ex_buf__;
-static volatile int longjmp_value = 0;
+extern jmp_buf ex_buf__;
+extern volatile int longjmp_value;
 
 static void
 sigterm_handler(int sig)
@@ -4853,6 +4853,7 @@ void ffmpeg_var_cleanup() {
 
 int ffmpeg_execute(int argc, char **argv)
 {
+    printf("Entering ffmpeg_execute\n");
     int i, ret;
     BenchmarkTimeStamps ti;
 

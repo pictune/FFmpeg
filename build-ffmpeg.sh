@@ -23,8 +23,8 @@ THIN=`pwd`/"thin"
 CONFIGURE_FLAGS="--enable-cross-compile --disable-debug \
                  --disable-doc --enable-pic --disable-everything --disable-network --disable-autodetect \
 		 --disable-ffplay --disable-ffprobe \
-		 --enable-decoder=pcm_f32be,pcm_f32le,prores \
-		 --enable-encoder=hevc_videotoolbox,h264_videotoolbox,aac \
+		 --enable-decoder=pcm_f32be,pcm_f32le,h264 \
+		 --enable-encoder=h264_videotoolbox,aac \
 		 --enable-demuxer=mov,caf,wav \
 		 --enable-muxer=mp4 \
 		 --enable-protocol=file --enable-filter=aresample --enable-videotoolbox \

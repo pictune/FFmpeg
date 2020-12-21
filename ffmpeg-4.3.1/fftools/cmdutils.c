@@ -73,8 +73,8 @@ static FILE *report_file;
 static int report_file_level = AV_LOG_DEBUG;
 int hide_banner = 0;
 
-static jmp_buf ex_buf__;
-static int longjmp_value = 0;
+// extern jmp_buf ex_buf__;
+// extern volatile int longjmp_value;
 
 enum show_muxdemuxers {
     SHOW_DEFAULT,
@@ -138,7 +138,9 @@ void exit_program(int ret)
     if (program_exit)
         program_exit(ret);
 
-    exit(ret);
+    // exit(ret);
+    longjmp_value = ret;
+    longjmp(ex_buf__, ret);
 }
 
 double parse_number_or_die(const char *context, const char *numstr, int type,
