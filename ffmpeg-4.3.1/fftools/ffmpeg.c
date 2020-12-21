@@ -347,8 +347,8 @@ static volatile int ffmpeg_exited = 0;
 static int main_return_code = 0;
 // extern int longjmp_value;
 // extern jmp_buf ex_buf__;
-extern jmp_buf ex_buf__;
-extern volatile int longjmp_value;
+// extern jmp_buf ex_buf__;
+// extern volatile int longjmp_value;
 
 static void
 sigterm_handler(int sig)

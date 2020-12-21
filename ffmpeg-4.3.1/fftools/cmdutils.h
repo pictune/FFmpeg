@@ -35,8 +35,8 @@
 #undef main /* We don't want SDL to override our main() */
 #endif
 
-jmp_buf ex_buf__;
-volatile int longjmp_value = 0;
+extern jmp_buf ex_buf__;
+extern volatile int longjmp_value;
 
 /**
  * program name, defined by the program for show_version().
