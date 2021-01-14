@@ -27,7 +27,7 @@ CONFIGURE_FLAGS="--enable-cross-compile --disable-debug \
 		 --enable-encoder=h264_videotoolbox,aac \
 		 --enable-demuxer=mov,caf,wav \
 		 --enable-muxer=mp4 \
-		 --enable-protocol=file --enable-filter=aresample --enable-videotoolbox \
+		 --enable-protocol=file --enable-filter=aresample --enable-videotoolbox --enable-filter=scale \
 		 --enable-bzlib --enable-zlib --enable-iconv"
 
 if [ "$X264" ]
