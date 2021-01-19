@@ -275,39 +275,48 @@ static void clear_frame_queue(VTEncContext *vtctx)
 
 static int vtenc_q_pop(VTEncContext *vtctx, bool wait, CMSampleBufferRef *buf, ExtraSEI **sei)
 {
+    printf("entering vtenc_q_pop\n");
     BufNode *info;
 
     pthread_mutex_lock(&vtctx->lock);
 
+    printf("a\n");
     if (vtctx->async_error) {
         pthread_mutex_unlock(&vtctx->lock);
         return vtctx->async_error;
     }
-
+printf("b\n");
     if (vtctx->flushing && vtctx->frame_ct_in == vtctx->frame_ct_out) {
         *buf = NULL;
 
         pthread_mutex_unlock(&vtctx->lock);
+        printf("bb\n");
         return 0;
     }
-
+printf("c\n");
     while (!vtctx->q_head && !vtctx->async_error && wait) {
+        printf("before pthread_cond_wait\n");
         pthread_cond_wait(&vtctx->cv_sample_sent, &vtctx->lock);
+        printf("after pthread_cond_wait\n");
     }
 
     if (!vtctx->q_head) {
+        printf("before pthread_mutex_unlock\n");
         pthread_mutex_unlock(&vtctx->lock);
+        printf("after pthread_mutex_unlock\n");
         *buf = NULL;
         return 0;
     }
-
+printf("d\n");
     info = vtctx->q_head;
     vtctx->q_head = vtctx->q_head->next;
     if (!vtctx->q_head) {
         vtctx->q_tail = NULL;
     }
 
+printf("e\n");
     pthread_mutex_unlock(&vtctx->lock);
+printf("f\n");
 
     *buf = info->cm_buffer;
     if (sei && *buf) {
@@ -317,7 +326,7 @@ static int vtenc_q_pop(VTEncContext *vtctx, bool wait, CMSampleBufferRef *buf, E
         av_free(info->sei);
     }
     av_free(info);
-
+printf("after av_frees\n");
     vtctx->frame_ct_out++;
 
     return 0;
@@ -2342,6 +2351,7 @@ static av_cold int vtenc_frame(
     const AVFrame  *frame,
     int            *got_packet)
 {
+    printf("entering vtenc_Frame\n");
     VTEncContext *vtctx = avctx->priv_data;
     bool get_frame;
     int status;
@@ -2349,11 +2359,15 @@ static av_cold int vtenc_frame(
     ExtraSEI *sei = NULL;
 
     if (frame) {
+        printf("frame\n");
         status = vtenc_send_frame(avctx, vtctx, frame);
+        printf("exit send_frame\n");
 
         if (status) {
             status = AVERROR_EXTERNAL;
+            printf("before goto end_nopkt1\n");
             goto end_nopkt;
+            printf("after goto end_nopkt1\n");
         }
 
         if (vtctx->frame_ct_in == 0) {
@@ -2365,14 +2379,17 @@ static av_cold int vtenc_frame(
         vtctx->frame_ct_in++;
     } else if(!vtctx->flushing) {
         vtctx->flushing = true;
-
+        printf("before VTCompressionSessionCompleteFrames\n");
         status = VTCompressionSessionCompleteFrames(vtctx->session,
                                                     kCMTimeIndefinite);
+        printf("after VTCompressionSessionCompleteFrames\n");
 
         if (status) {
             av_log(avctx, AV_LOG_ERROR, "Error flushing frames: %d\n", status);
             status = AVERROR_EXTERNAL;
+            printf("before goto end_nopkt2\n");
             goto end_nopkt;
+            printf("after goto end_nopkt2\n");
         }
     }
 
@@ -2380,14 +2397,18 @@ static av_cold int vtenc_frame(
     get_frame = vtctx->dts_delta >= 0 || !frame;
     if (!get_frame) {
         status = 0;
+        printf("!get_frame\n");
         goto end_nopkt;
     }
-
+    printf("before vtenc_q_pop\n");
     status = vtenc_q_pop(vtctx, !frame, &buf, &sei);
+    printf("after vtenc_q_pop\n");
     if (status) goto end_nopkt;
     if (!buf)   goto end_nopkt;
 
+    printf("before vtenc_cm_to_avpacket\n");
     status = vtenc_cm_to_avpacket(avctx, buf, pkt, sei);
+    printf("after vtenc_cm_to_avpacket\n");
     if (sei) {
         if (sei->data) av_free(sei->data);
         av_free(sei);
@@ -2399,7 +2420,9 @@ static av_cold int vtenc_frame(
     return 0;
 
 end_nopkt:
+    printf("end_nopkt\n");
     av_packet_unref(pkt);
+    printf("return\n");
     return status;
 }
 

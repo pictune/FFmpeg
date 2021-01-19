@@ -158,6 +158,8 @@ int         nb_output_files   = 0;
 FilterGraph **filtergraphs;
 int        nb_filtergraphs;
 
+void (*report_callback)(int, float, float, int64_t, int, double, double) = NULL;
+
 #if HAVE_TERMIOS_H
 
 /* init terminal so that we can grab keys */
@@ -1636,6 +1638,87 @@ static void print_final_stats(int64_t total_size)
     }
 }
 
+static void forward_report(int is_last_report, int64_t timer_start, int64_t cur_time)
+{
+    AVFormatContext *oc = NULL;
+    AVCodecContext *enc = NULL;
+    OutputStream *ost = NULL;
+    static int64_t last_time = -1;
+    int64_t pts = INT64_MIN + 1;
+    int vid, i;
+
+    int frame_number = 0;
+    float fps = 0;
+    float quality = 0;
+    int64_t total_size = 0;
+    int seconds = 0;
+    double bitrate = 0.0;
+    double speed = 0.0;
+
+    // 1. calculate operation duration
+    if (!is_last_report) {
+        if (last_time == -1) {
+            last_time = cur_time;
+            return;
+        }
+        if ((cur_time - last_time) < 500000) {
+            return;
+        }
+        last_time = cur_time;
+    }
+    float t = (cur_time-timer_start) / 1000000.0;
+
+    oc = output_files[0]->ctx;
+
+    // 2. calculate size
+    total_size = avio_size(oc->pb);
+    if (total_size <= 0) {
+        total_size = avio_tell(oc->pb);
+    }
+
+    vid = 0;
+    for (i = 0; i < nb_output_streams; i++) {
+        ost = output_streams[i];
+        enc = ost->enc_ctx;
+
+        if (!ost->stream_copy) {
+
+            // 3. extract quality
+            quality = ost->quality / (float) FF_QP2LAMBDA;
+        }
+
+        if (!vid && enc->codec_type == AVMEDIA_TYPE_VIDEO) {
+
+            // 4. extract frame number
+            frame_number = ost->frame_number;
+
+            // 5. calculate fps
+            fps = t > 1 ? frame_number / t : 0;
+        }
+
+        // 6. calculate time
+        if (av_stream_get_end_pts(ost->st) != AV_NOPTS_VALUE)
+            pts = FFMAX(pts, av_rescale_q(av_stream_get_end_pts(ost->st),
+                                          ost->st->time_base, AV_TIME_BASE_Q));
+
+        vid = 1;
+    }
+
+    // 7. calculate time, with microseconds to milliseconds conversion
+    seconds = FFABS(pts) / 1000;
+
+    // 8. calculating kbit/s value
+    bitrate = pts && total_size >= 0 ? total_size * 8 / (pts / 1000.0) : -1;
+
+    // 9. calculate processing speed = processed stream duration/operation duration
+    speed = t != 0.0 ? (double)pts / AV_TIME_BASE / t : -1;
+
+    // FORWARD DATA
+    if (report_callback != NULL) {
+        report_callback(frame_number, fps, quality, total_size, seconds, bitrate, speed);
+    }
+}
+
 static void print_report(int is_last_report, int64_t timer_start, int64_t cur_time)
 {
     AVBPrint buf, buf_script;
@@ -1653,6 +1736,9 @@ static void print_report(int is_last_report, int64_t timer_start, int64_t cur_ti
     const char *hours_sign;
     int ret;
     float t;
+
+    // FORWARD IT BEFORE PROCESSING
+    forward_report(is_last_report, timer_start, cur_time);
 
     if (!print_stats && !is_last_report && !progress_avio)
         return;
@@ -1850,9 +1936,11 @@ static void ifilter_parameters_from_codecpar(InputFilter *ifilter, AVCodecParame
 
 static void flush_encoders(void)
 {
+    printf("entering flush_encoders\n");
     int i, ret;
 
     for (i = 0; i < nb_output_streams; i++) {
+        printf("%d\n", i);
         OutputStream   *ost = output_streams[i];
         AVCodecContext *enc = ost->enc_ctx;
         OutputFile      *of = output_files[ost->file_index];
@@ -1884,6 +1972,7 @@ static void flush_encoders(void)
                 ret = configure_filtergraph(fg);
                 if (ret < 0) {
                     av_log(NULL, AV_LOG_ERROR, "Error configuring filter graph\n");
+                    printf("exit\n");
                     exit_program(1);
                 }
 
@@ -1894,13 +1983,15 @@ static void flush_encoders(void)
             if (ret < 0) {
                 av_log(NULL, AV_LOG_ERROR, "Error initializing output stream %d:%d -- %s\n",
                        ost->file_index, ost->index, error);
+                printf("exit 2\n");
                 exit_program(1);
             }
         }
 
+        printf("mid\n");
         if (enc->codec_type != AVMEDIA_TYPE_VIDEO && enc->codec_type != AVMEDIA_TYPE_AUDIO)
             continue;
-
+        printf("second mid\n");
         for (;;) {
             const char *desc = NULL;
             AVPacket pkt;
@@ -1916,28 +2007,38 @@ static void flush_encoders(void)
             default:
                 av_assert0(0);
             }
-
+            printf("after switch\n");
             av_init_packet(&pkt);
             pkt.data = NULL;
             pkt.size = 0;
 
+            printf("before update_benchmark\n");
             update_benchmark(NULL);
+            printf("after update_benchmark\n");
 
+            printf("before while\n");
             while ((ret = avcodec_receive_packet(enc, &pkt)) == AVERROR(EAGAIN)) {
+                printf("in while\n");
+                fflush(stdout);
                 ret = avcodec_send_frame(enc, NULL);
                 if (ret < 0) {
                     av_log(NULL, AV_LOG_FATAL, "%s encoding failed: %s\n",
                            desc,
                            av_err2str(ret));
+                    printf("exit 3\n");
                     exit_program(1);
                 }
             }
+            printf("after while\n");
 
+            printf("before update_benchmark2\n");
             update_benchmark("flush_%s %d.%d", desc, ost->file_index, ost->index);
+            printf("after update_benchmark2\n");
             if (ret < 0 && ret != AVERROR_EOF) {
                 av_log(NULL, AV_LOG_FATAL, "%s encoding failed: %s\n",
                        desc,
                        av_err2str(ret));
+                printf("exit 4\n");
                 exit_program(1);
             }
             if (ost->logfile && enc->stats_out) {
@@ -1945,20 +2046,29 @@ static void flush_encoders(void)
             }
             if (ret == AVERROR_EOF) {
                 output_packet(of, &pkt, ost, 1);
+                printf("eof\n");
                 break;
             }
             if (ost->finished & MUXER_FINISHED) {
                 av_packet_unref(&pkt);
+                printf("muxer_finished\n");
                 continue;
             }
+            printf("before av_packet_rescale_ts\n");
             av_packet_rescale_ts(&pkt, enc->time_base, ost->mux_timebase);
+            printf("after av_packet_rescale_ts\n");
             pkt_size = pkt.size;
+            printf("before output_packet\n");
             output_packet(of, &pkt, ost, 0);
+            printf("after output_packet\n");
             if (ost->enc_ctx->codec_type == AVMEDIA_TYPE_VIDEO && vstats_filename) {
+                printf("before do_video_stats\n");
                 do_video_stats(ost, pkt_size);
+                printf("after do_video_stats\n");
             }
         }
     }
+    printf("exiting flush_encoders\n");
 }
 
 /*
@@ -2571,6 +2681,7 @@ static int process_input_packet(InputStream *ist, const AVPacket *pkt, int no_eo
     if (ist->next_pts == AV_NOPTS_VALUE)
         ist->next_pts = ist->pts;
 
+    printf("\t1\n");
     if (!pkt) {
         /* EOF handling */
         av_init_packet(&avpkt);
@@ -2580,12 +2691,14 @@ static int process_input_packet(InputStream *ist, const AVPacket *pkt, int no_eo
         avpkt = *pkt;
     }
 
+    printf("\t2\n");
     if (pkt && pkt->dts != AV_NOPTS_VALUE) {
         ist->next_dts = ist->dts = av_rescale_q(pkt->dts, ist->st->time_base, AV_TIME_BASE_Q);
         if (ist->dec_ctx->codec_type != AVMEDIA_TYPE_VIDEO || !ist->decoding_needed)
             ist->next_pts = ist->pts = ist->dts;
     }
 
+    printf("\t3\n");
     // while we have more to decode or while the decoder did output something on EOF
     while (ist->decoding_needed) {
         int64_t duration_dts = 0;
@@ -2638,12 +2751,12 @@ static int process_input_packet(InputStream *ist, const AVPacket *pkt, int no_eo
         default:
             return -1;
         }
-
+        printf("\t4\n");
         if (ret == AVERROR_EOF) {
             eof_reached = 1;
             break;
         }
-
+        printf("\t5\n");
         if (ret < 0) {
             if (decode_failed) {
                 av_log(NULL, AV_LOG_ERROR, "Error while decoding stream #%d:%d: %s\n",
@@ -2683,10 +2796,11 @@ static int process_input_packet(InputStream *ist, const AVPacket *pkt, int no_eo
         int ret = send_filter_eof(ist);
         if (ret < 0) {
             av_log(NULL, AV_LOG_FATAL, "Error marking filters as finished\n");
+            printf("\tsendfilter\n");
             exit_program(1);
         }
     }
-
+    printf("\t6\n");
     /* handle stream copy */
     if (!ist->decoding_needed && pkt) {
         ist->dts = ist->next_dts;
@@ -2719,14 +2833,16 @@ static int process_input_packet(InputStream *ist, const AVPacket *pkt, int no_eo
         ist->pts = ist->dts;
         ist->next_pts = ist->next_dts;
     }
+    printf("\t7\n");
     for (i = 0; i < nb_output_streams; i++) {
         OutputStream *ost = output_streams[i];
 
         if (!check_output_constraints(ist, ost) || ost->encoding_needed)
             continue;
-
+        printf("\tDO_STREAMCOPY\n");
         do_streamcopy(ist, ost, pkt);
     }
+    printf("\t8\n");
 
     return !eof_reached;
 }
@@ -4676,12 +4792,15 @@ static int transcode(void)
         /* dump report by using the output first video and audio streams */
         print_report(0, timer_start, cur_time);
     }
+    printf("before HAVE_THREADS\n");
 #if HAVE_THREADS
     free_input_threads();
 #endif
+    printf("after HAVE_THREADS\n");
 
     /* at the end of stream, we must flush the decoder buffers */
     for (i = 0; i < nb_input_streams; i++) {
+        printf("procces_input_packet\n");
         ist = input_streams[i];
         if (!input_files[ist->file_index]->eof_reached) {
             process_input_packet(ist, NULL, 0);
@@ -4689,8 +4808,11 @@ static int transcode(void)
     }
     flush_encoders();
 
+    printf("before TERM_EXIT\n");
     term_exit();
+    printf("after TERM_EXIT\n");
 
+    printf("before WRITE_TRAILER\n");
     /* write the trailer if needed and close file */
     for (i = 0; i < nb_output_files; i++) {
         os = output_files[i]->ctx;
@@ -4707,6 +4829,7 @@ static int transcode(void)
                 exit_program(1);
         }
     }
+    printf("after WRITE_TRAILER\n");
 
     /* dump report by using the first video and audio streams */
     print_report(1, timer_start, av_gettime_relative());
@@ -4821,6 +4944,11 @@ static void log_callback_null(void *ptr, int level, const char *fmt, va_list vl)
 {
 }
 
+void set_report_callback(void (*callback)(int, float, float, int64_t, int, double, double))
+{
+    report_callback = callback;
+}
+
 void ffmpeg_var_cleanup() {
     main_return_code = 0;
     longjmp_value = 0;
@@ -4909,6 +5037,7 @@ int ffmpeg_execute(int argc, char **argv)
         current_time = ti = get_benchmark_time_stamps();
         if (transcode() < 0)
             exit_program(1);
+            printf("finished transacoding\n");
         if (do_benchmark) {
             int64_t utime, stime, rtime;
             current_time = get_benchmark_time_stamps();

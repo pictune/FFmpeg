@@ -261,49 +261,70 @@ int attribute_align_arg avcodec_encode_video2(AVCodecContext *avctx,
                                               const AVFrame *frame,
                                               int *got_packet_ptr)
 {
+    printf("entering avcodec_encode_video2\n");
+    fflush(stdout);
     int ret;
+    printf("1\n");
+    fflush(stdout);
     AVPacket user_pkt = *avpkt;
+    printf("2\n");
+    fflush(stdout);
     int needs_realloc = !user_pkt.data;
+    printf("3\n");
+    fflush(stdout);
 
     *got_packet_ptr = 0;
-
+    printf("11\n");
+    fflush(stdout);
     if (!avctx->codec->encode2) {
         av_log(avctx, AV_LOG_ERROR, "This encoder requires using the avcodec_send_frame() API.\n");
         return AVERROR(ENOSYS);
     }
-
+    printf("22\n");
     if ((avctx->flags&AV_CODEC_FLAG_PASS1) && avctx->stats_out)
         avctx->stats_out[0] = '\0';
-
     if (!frame &&
         !(avctx->codec->capabilities & AV_CODEC_CAP_DELAY ||
           (avctx->internal->frame_thread_encoder && avctx->active_thread_type & FF_THREAD_FRAME))) {
+              printf("33\n");
         av_packet_unref(avpkt);
+        printf("44\n");
         return 0;
     }
-
+printf("55\n");
     if (av_image_check_size2(avctx->width, avctx->height, avctx->max_pixels, AV_PIX_FMT_NONE, 0, avctx))
-        return AVERROR(EINVAL);
+        {
+            printf("66\n");
+            return AVERROR(EINVAL);
+            }
 
     if (frame && frame->format == AV_PIX_FMT_NONE)
         av_log(avctx, AV_LOG_WARNING, "AVFrame.format is not set\n");
     if (frame && (frame->width == 0 || frame->height == 0))
         av_log(avctx, AV_LOG_WARNING, "AVFrame.width or height is not set\n");
 
+printf("77\n");
     av_assert0(avctx->codec->encode2);
+    printf("88\n");
 
 
     if (CONFIG_FRAME_THREAD_ENCODER &&
         avctx->internal->frame_thread_encoder && (avctx->active_thread_type & FF_THREAD_FRAME))
+       { printf("99\n");
         ret = ff_thread_video_encode_frame(avctx, avpkt, frame, got_packet_ptr);
+        printf("00\n");}
     else {
+        printf("aa\n");
         ret = avctx->codec->encode2(avctx, avpkt, frame, got_packet_ptr);
+        printf("bb\n");
         if (*got_packet_ptr && !(avctx->codec->capabilities & AV_CODEC_CAP_DELAY))
             avpkt->pts = avpkt->dts = frame->pts;
     }
     av_assert0(ret <= 0);
 
+printf("cc\n");
     emms_c();
+    printf("dd\n");
 
     if (avpkt->data && avpkt->data == avctx->internal->byte_buffer) {
         needs_realloc = 0;
@@ -363,27 +384,38 @@ static int do_encode(AVCodecContext *avctx, const AVFrame *frame, int *got_packe
     int ret;
     *got_packet = 0;
 
+    printf("before av_packet_unref\n");
     av_packet_unref(avctx->internal->buffer_pkt);
+    printf("after av_packet_unref\n");
     avctx->internal->buffer_pkt_valid = 0;
 
     if (avctx->codec_type == AVMEDIA_TYPE_VIDEO) {
+        printf("before avcodec_encode_video2\n");
         ret = avcodec_encode_video2(avctx, avctx->internal->buffer_pkt,
                                     frame, got_packet);
+        printf("after avcodec_encode_video2\n");
     } else if (avctx->codec_type == AVMEDIA_TYPE_AUDIO) {
+        printf("before avcodec_encode_audio2\n");
         ret = avcodec_encode_audio2(avctx, avctx->internal->buffer_pkt,
                                     frame, got_packet);
+        printf("after avcodec_encode_audio2\n");
     } else {
+        printf("AVERROR(EINVAL)\n");
         ret = AVERROR(EINVAL);
     }
 
     if (ret >= 0 && *got_packet) {
         // Encoders must always return ref-counted buffers.
         // Side-data only packets have no data and can be not ref-counted.
+        printf("before av_assert0\n");
         av_assert0(!avctx->internal->buffer_pkt->data || avctx->internal->buffer_pkt->buf);
+        printf("after av_assert0\n");
         avctx->internal->buffer_pkt_valid = 1;
         ret = 0;
     } else {
+        printf("before av_packet_unref\n");
         av_packet_unref(avctx->internal->buffer_pkt);
+        printf("after av_packet_unref\n");
     }
 
     return ret;
@@ -421,15 +453,21 @@ int attribute_align_arg avcodec_send_frame(AVCodecContext *avctx, const AVFrame 
 
 int attribute_align_arg avcodec_receive_packet(AVCodecContext *avctx, AVPacket *avpkt)
 {
+    printf("entering avcodec_receive_packet\n");
     av_packet_unref(avpkt);
 
     if (!avcodec_is_open(avctx) || !av_codec_is_encoder(avctx->codec))
         return AVERROR(EINVAL);
 
+    printf("after chekin is_open and is_encoder\n");
     if (avctx->codec->receive_packet) {
+        printf("did receive packet\n");
         int ret;
-        if (avctx->internal->draining && !(avctx->codec->capabilities & AV_CODEC_CAP_DELAY))
+        if (avctx->internal->draining && !(avctx->codec->capabilities & AV_CODEC_CAP_DELAY)) {
+            printf("returned eof\n");
             return AVERROR_EOF;
+        }
+            
         ret = avctx->codec->receive_packet(avctx, avpkt);
         if (!ret)
             // Encoders must always return ref-counted buffers.
@@ -440,19 +478,31 @@ int attribute_align_arg avcodec_receive_packet(AVCodecContext *avctx, AVPacket *
 
     // Emulation via old API.
 
+    printf("before pkt is valid\n");
     if (!avctx->internal->buffer_pkt_valid) {
+        printf("in pkt is valid\n");
         int got_packet;
         int ret;
-        if (!avctx->internal->draining)
+        if (!avctx->internal->draining) {
+            printf("draining\n");
             return AVERROR(EAGAIN);
+        }
+            
+        printf("before do_encode\n");
         ret = do_encode(avctx, NULL, &got_packet);
+        printf("after do_encode\n");
         if (ret < 0)
-            return ret;
+            {
+                printf("ret < 0\n");
+                return ret;}
         if (ret >= 0 && !got_packet)
-            return AVERROR_EOF;
+            {
+                printf("AVERROR_EOF\n");
+                return AVERROR_EOF;}
     }
 
     av_packet_move_ref(avpkt, avctx->internal->buffer_pkt);
     avctx->internal->buffer_pkt_valid = 0;
+    printf("exiting avcodec_receive_packet\n");
     return 0;
 }
