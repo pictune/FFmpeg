@@ -4851,6 +4851,15 @@ void ffmpeg_var_cleanup() {
     nb_filtergraphs = 0;
 }
 
+void cancel_operation(long id)
+{
+    if (id == 0) {
+        sigterm_handler(SIGINT);
+    } else {
+        // removeExecution(id);
+    }
+}
+
 int ffmpeg_execute(int argc, char **argv)
 {
     printf("Entering ffmpeg_execute\n");

@@ -664,6 +664,8 @@ int hw_device_setup_for_filter(FilterGraph *fg);
 
 int hwaccel_decode_init(AVCodecContext *avctx);
 
+void cancel_operation(long id);
+
 void ffmpeg_var_cleanup(void);
 int ffmpeg_execute(int argc, char **argv);
 

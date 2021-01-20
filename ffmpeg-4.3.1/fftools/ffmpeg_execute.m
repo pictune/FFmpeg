@@ -106,7 +106,7 @@ int configuredLogLevel = 0;
  * This function does not wait for termination to complete and returns immediately.
  */
 + (void)cancel {
-    // cancel_operation(DEFAULT_EXECUTION_ID);
+    cancel_operation(DEFAULT_EXECUTION_ID);
 }
 
 /**
@@ -117,7 +117,7 @@ int configuredLogLevel = 0;
  * @param executionId execution id
  */
 + (void)cancel:(long)executionId {
-    // cancel_operation(executionId);
+    cancel_operation(executionId);
 }
 
 /**
